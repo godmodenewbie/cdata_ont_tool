@@ -1,0 +1,44 @@
+# C-Data ONT Driver Frontend Implementation Plan
+
+## Goal
+Create a simple web-based frontend to interact with the [CDataJsonDriver](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/cdata_driver.py#6-168) python class. This will allow users to log in to the ONT device and perform ping tests through a user-friendly interface.
+
+## User Review Required
+> [!NOTE]
+> This solution uses **FastAPI** for the backend and **vanilla HTML/JS** with **Tailwind CSS** (via CDN) for the frontend. This ensures the app is lightweight and easy to run without a complex build step.
+
+## Proposed Changes
+
+### Backend (`cdata_ont_tool`)
+#### [NEW] [requirements.txt](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/requirements.txt)
+- `fastapi`
+- `uvicorn`
+- `requests`
+- `pydantic`
+
+#### [NEW] [main.py](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/main.py)
+- Setup FastAPI app.
+- Serve static files (frontend).
+- API Endpoints:
+    - `POST /api/login`: Accepts IP, Username, Password. Initializes the [CDataJsonDriver](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/cdata_driver.py#6-168) and verifies login. Stores the driver instance in memory (simple state management).
+    - `POST /api/ping`: Accepts target IP. Uses the stored driver instance to perform the ping.
+
+### Frontend (`cdata_ont_tool/static`)
+#### [NEW] [index.html](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/static/index.html)
+- Single page application.
+- **Login Section**: Form for Device IP, Username, Password.
+- **Control Section**: Visible after login.
+    - Ping Test form.
+    - Output console to show results.
+- Styling: Modern and clean using Tailwind CSS.
+- Logic: Vanilla JavaScript to `fetch` data from the backend.
+
+## Verification Plan
+### Automated Tests
+- Run `uvicorn main:app --reload`.
+- Use `curl` to test `/api/login` and `/api/ping`.
+
+### Manual Verification
+- Open `http://localhost:8000` in browser.
+- Enter credentials and test the login flow.
+- Run a ping test and observe the output.

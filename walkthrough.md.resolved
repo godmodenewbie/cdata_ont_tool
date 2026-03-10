@@ -1,0 +1,33 @@
+# C-Data ONT Driver Frontend Walkthrough
+
+I have implemented a simple web interface for your C-Data ONT Driver.
+
+## Components
+1.  **Backend**: [main.py](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/main.py) uses FastAPI to serve the frontend and handle API requests. It uses your existing [CDataJsonDriver](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/cdata_driver.py#6-168) logic.
+2.  **Frontend**: [static/index.html](file:///Users/nobin/.gemini/antigravity/scratch/cdata_ont_tool/static/index.html) is a single-page app using Tailwind CSS for styling.
+
+## How to Run
+
+1.  **Install Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **Start the Server**:
+    ```bash
+    python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+    ```
+
+3.  **Access the Interface**:
+    Open your browser and navigate to: [http://localhost:8000](http://localhost:8000)
+
+## Verification Results
+- **Frontend Serving**: Confirmed that `http://localhost:8000/` loads the HTML interface.
+- **API Response**: Confirmed that `/api/login` handles credentials and returns appropriate JSON responses (simulated failure due to no device).
+
+## Screenshot
+(Since this is a headless environment, I verified the HTML structure via curl).
+The interface includes:
+-   **Login Card**: For entering IP, Username, Password.
+-   **Ping Card**: Hidden until login, allows entering a target IP to ping.
+-   **Results Area**: Displays status (ONLINE/OFFLINE) and raw output.

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C-Data ONT Driver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .loading {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">C-Data ONT Tool</h1>
+
+        <!-- Login Section -->
+        <div id="login-section" class="card">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Device Login</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ONT IP Address</label>
+                    <input type="text" id="ip" name="ip" placeholder="192.168.1.1" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" name="username" placeholder="admin" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                </div>
+                <button type="submit" id="login-btn"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Login
+                </button>
+                <p id="login-message" class="text-sm text-red-600 mt-2 hidden"></p>
+            </form>
+        </div>
+
+        <!-- Dashboard Section (Hidden initially) -->
+        <div id="dashboard-section" class="hidden space-y-4 mb-6">
+            <!-- Row 1: Device Info & Status -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Device Info Card -->
+                <div class="card mb-0">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Device Info</h2>
+                    <div id="device-info-content" class="text-sm space-y-2">
+                        <p class="text-gray-500">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Status Card -->
+                <div class="card mb-0">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Status & Resources</h2>
+                    <div id="status-content" class="text-sm space-y-2">
+                        <p class="text-gray-500">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: PON Info -->
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">PON Info</h2>
+                <div id="pon-info-content" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ping Section (Hidden initially) -->
+        <div id="ping-section" class="card hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Ping Test</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Target IP to Ping</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="target-ip" name="target_ip" placeholder="8.8.8.8" required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border flex-grow">
+                        <button id="ping-btn"
+                            class="mt-1 inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Ping
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ping-results" class="hidden mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <h3 class="text-md font-medium text-gray-900 mb-2">Results:</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Target:</span>
+                            <span id="res-target" class="font-mono text-gray-900"></span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Status:</span>
+                            <span id="res-status" class="font-mono font-bold"></span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="text-gray-500 text-xs uppercase tracking-wide">Raw Output:</span>
+                        <pre id="res-raw"
+                            class="mt-1 text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Traceroute Section (Hidden initially) -->
+        <div id="traceroute-section" class="card hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Traceroute</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Target IP</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="trace-target-ip" name="trace_target_ip" placeholder="8.8.8.8" required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm p-2 border flex-grow">
+                        <button id="trace-btn"
+                            class="mt-1 inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                            Traceroute
+                        </button>
+                    </div>
+                </div>
+
+                <div id="trace-results" class="hidden mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <h3 class="text-md font-medium text-gray-900 mb-2">Results:</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Target:</span>
+                            <span id="trace-res-target" class="font-mono text-gray-900"></span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Status:</span>
+                            <span id="trace-res-status" class="font-mono font-bold"></span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="text-gray-500 text-xs uppercase tracking-wide">Raw Output:</span>
+                        <pre id="trace-res-raw"
+                            class="mt-1 text-xs bg-gray-900 text-purple-400 p-2 rounded overflow-x-auto whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const loginSection = document.getElementById('login-section');
+        const pingSection = document.getElementById('ping-section');
+        const tracerouteSection = document.getElementById('traceroute-section');
+        const loginBtn = document.getElementById('login-btn');
+        const loginMessage = document.getElementById('login-message');
+
+        const pingBtn = document.getElementById('ping-btn');
+        const targetIpInput = document.getElementById('target-ip');
+        const pingResults = document.getElementById('ping-results');
+
+        const traceBtn = document.getElementById('trace-btn');
+        const traceTargetIpInput = document.getElementById('trace-target-ip');
+        const traceResults = document.getElementById('trace-results');
+        const traceResTarget = document.getElementById('trace-res-target');
+        const traceResStatus = document.getElementById('trace-res-status');
+        const traceResRaw = document.getElementById('trace-res-raw');
+        const resTarget = document.getElementById('res-target');
+        const resStatus = document.getElementById('res-status');
+        const resRaw = document.getElementById('res-raw');
+
+        // Helper to toggle loading state
+        function setLoading(btn, isLoading) {
+            if (isLoading) {
+                const originalText = btn.innerText;
+                btn.dataset.originalText = originalText;
+                btn.innerHTML = `${originalText} <div class="loading"></div>`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalText;
+                btn.disabled = false;
+            }
+        }
+
+        const dashboardSection = document.getElementById('dashboard-section');
+
+        // Helper to formatting Key-Value pairs
+        function createInfoRow(label, value) {
+            return `<div class="flex justify-between border-b border-gray-100 py-1">
+                <span class="text-gray-500">${label}</span>
+                <span class="font-medium text-gray-800">${value}</span>
+            </div>`;
+        }
+
+        async function fetchDashboardData() {
+            try {
+                // 1. Device Info
+                const infoRes = await fetch('/api/info');
+                const infoData = await infoRes.json();
+                if (infoData && !infoData.error) {
+                    document.getElementById('device-info-content').innerHTML = `
+                        ${createInfoRow('Model', infoData.model)}
+                        ${createInfoRow('SN', infoData.sn)}
+                        ${createInfoRow('GPON SN', infoData.gpon_sn)}
+                        ${createInfoRow('Hardware Ver', infoData.hardware_version)}
+                        ${createInfoRow('Software Ver', infoData.software_version)}
+                        ${createInfoRow('Uptime', infoData.uptime + 's')}
+                    `;
+                }
+
+                // 2. Status
+                const statusRes = await fetch('/api/status');
+                const statusData = await statusRes.json();
+                if (statusData && !statusData.error) {
+                    let ledHtml = '';
+                    if (statusData.led_status) {
+                        for (const [key, val] of Object.entries(statusData.led_status)) {
+                            if (key === 'lan' && Array.isArray(val)) {
+                                ledHtml += `<div>LAN: [${val.join(', ')}]</div>`;
+                            } else {
+                                const color = val === 'on' ? 'text-green-600' : 'text-gray-400';
+                                ledHtml += `<div class="capitalize ${color}">● ${key}</div>`;
+                            }
+                        }
+                    }
+
+                    document.getElementById('status-content').innerHTML = `
+                        ${createInfoRow('CPU Usage', statusData.CPU_Usage + '%')}
+                        ${createInfoRow('Memory Usage', statusData.Memory_Usage + '%')}
+                        <div class="mt-2 text-xs font-mono border-t pt-2">
+                            <strong>LED Status:</strong>
+                            <div class="grid grid-cols-3 gap-1 mt-1">
+                                ${ledHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 3. PON Info
+                const ponRes = await fetch('/api/pon');
+                const ponData = await ponRes.json();
+                if (ponData && !ponData.error) {
+                    document.getElementById('pon-info-content').innerHTML = `
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">PON Mode</div>
+                            <div class="font-bold text-blue-600">${ponData.pon_mode}</div>
+                        </div>
+                         <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">ONU State</div>
+                            <div class="font-bold">${ponData.onu_state}</div>
+                        </div>
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">Rx Power</div>
+                            <div class="font-bold ${parseFloat(ponData.rxPower) < -27 ? 'text-red-500' : 'text-green-600'}">${ponData.rxPower}</div>
+                        </div>
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">Tx Power</div>
+                            <div class="font-bold">${ponData.txPower}</div>
+                        </div>
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">Voltage</div>
+                            <div class="font-bold">${ponData.voltage}</div>
+                        </div>
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">Temp</div>
+                            <div class="font-bold">${ponData.temp}°C</div>
+                        </div>
+                        <div class="p-2 bg-gray-50 rounded">
+                            <div class="text-gray-500 text-xs">Bias Current</div>
+                            <div class="font-bold">${ponData.biasCurrent}</div>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error("Error fetching dashboard data", error);
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading(loginBtn, true);
+            loginMessage.classList.add('hidden');
+
+            const ip = document.getElementById('ip').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip, username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // Login success
+                    loginSection.classList.add('hidden');
+                    dashboardSection.classList.remove('hidden');
+                    pingSection.classList.remove('hidden');
+                    tracerouteSection.classList.remove('hidden');
+
+                    // Fetch Dashboard Data
+                    fetchDashboardData();
+                } else {
+                    // Login failed
+
+                    loginMessage.textContent = data.message || 'Login failed';
+                    loginMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                loginMessage.textContent = 'Network error: ' + error.message;
+                loginMessage.classList.remove('hidden');
+            } finally {
+                setLoading(loginBtn, false);
+            }
+        });
+
+        pingBtn.addEventListener('click', async () => {
+            const targetIp = targetIpInput.value;
+            if (!targetIp) return;
+
+            setLoading(pingBtn, true);
+            pingResults.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_ip: targetIp })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ping request failed');
+                }
+
+                const data = await response.json();
+
+                resTarget.textContent = data.target;
+                resStatus.textContent = data.status;
+
+                // Color code status
+                resStatus.className = 'font-mono font-bold';
+                if (data.status === 'ONLINE') resStatus.classList.add('text-green-600');
+                else if (data.status === 'OFFLINE/RTO') resStatus.classList.add('text-red-600');
+                else resStatus.classList.add('text-yellow-600');
+
+                resRaw.textContent = data.raw_output;
+                pingResults.classList.remove('hidden');
+
+            } catch (error) {
+                alert('Error performing ping: ' + error.message);
+            } finally {
+                setLoading(pingBtn, false);
+            }
+        });
+
+        traceBtn.addEventListener('click', async () => {
+            const targetIp = traceTargetIpInput.value;
+            if (!targetIp) return;
+
+            setLoading(traceBtn, true);
+            traceResults.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/traceroute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_ip: targetIp })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Traceroute request failed');
+                }
+
+                const data = await response.json();
+
+                traceResTarget.textContent = data.target;
+                traceResStatus.textContent = data.status;
+
+                // Color code status
+                traceResStatus.className = 'font-mono font-bold';
+                if (data.status === 'DONE') traceResStatus.classList.add('text-green-600');
+                else traceResStatus.classList.add('text-yellow-600');
+
+                traceResRaw.textContent = data.raw_output;
+                traceResults.classList.remove('hidden');
+
+            } catch (error) {
+                alert('Error performing traceroute: ' + error.message);
+            } finally {
+                setLoading(traceBtn, false);
+            }
+        });
+    </script>
+</body>
+
+</html>
