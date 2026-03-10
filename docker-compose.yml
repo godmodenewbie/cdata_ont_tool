@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  cdata-ont-tool:
+    build: .
+    container_name: cdata-ont-tool
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - .:/app
