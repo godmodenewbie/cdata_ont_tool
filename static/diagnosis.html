@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Diagnosis - C-Data ONT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .step-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .badge-pending {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .badge-running {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .badge-success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #overall-result {
+            transition: all 0.5s ease;
+        }
+
+        .gauge-container {
+            position: relative;
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .gauge-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 1s ease-in-out, background-color 1s ease-in-out;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Connection Diagnosis</h1>
+            <a href="/" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                &larr; Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Login Section (Only shown if not logged in) -->
+        <div id="login-section" class="card">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Device Login Required</h2>
+            <p class="text-sm text-gray-500 mb-4">Please login to access diagnosis tools.</p>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ONT IP Address</label>
+                    <input type="text" id="ip" value="192.168.1.1" required
+                        class="mt-1 block w-full rounded-md border-gray-300 p-2 border focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" value="admin" required
+                        class="mt-1 block w-full rounded-md border-gray-300 p-2 border focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" required
+                        class="mt-1 block w-full rounded-md border-gray-300 p-2 border focus:ring-blue-500">
+                </div>
+                <button type="submit" id="login-btn"
+                    class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                    Login
+                </button>
+                <p id="login-message" class="text-sm text-red-600 mt-2 hidden"></p>
+            </form>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="diagnosis-section" class="hidden">
+
+            <div class="card bg-gray-50 mb-6">
+                <p class="text-gray-600 text-sm mb-4">Pemeriksaan ini akan menguji kualitas koneksi internet secara
+                    bertahap mulai dari fisik kabel optik, kondisi router ONT, ping internet, hingga koneksi Wi-Fi/LAN
+                    lokal.</p>
+                <button id="start-btn"
+                    class="w-full py-3 px-4 rounded-md shadow-sm text-white font-bold bg-blue-600 hover:bg-blue-700 text-lg transition-colors">
+                    Mulai Diagnosis
+                </button>
+            </div>
+
+            <!-- Steps Container -->
+            <div id="steps-container" class="card hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Proses Diagnosis</h2>
+
+                <!-- Step 1: Physical Layer -->
+                <div class="step-card" id="step-1">
+                    <div class="step-header">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700">1. Parameter Redaman Optik (Fisik)</span>
+                            <div id="loader-1" class="loading-spinner hidden"></div>
+                        </div>
+                        <span id="badge-1" class="badge badge-pending">Menunggu</span>
+                    </div>
+                    <div id="content-1" class="text-sm text-gray-600 hidden space-y-2">
+                        <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded">
+                            <div><strong>Rx Power:</strong> <span id="val-rx">-</span> </div>
+                            <div><strong>Tx Power:</strong> <span id="val-tx">-</span> </div>
+                        </div>
+                        <p id="desc-1" class="font-medium mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Step 2: System Resource -->
+                <div class="step-card" id="step-2">
+                    <div class="step-header">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700">2. Parameter ONT (Uptime & CPU/Mem)</span>
+                            <div id="loader-2" class="loading-spinner hidden"></div>
+                        </div>
+                        <span id="badge-2" class="badge badge-pending">Menunggu</span>
+                    </div>
+                    <div id="content-2" class="text-sm text-gray-600 hidden space-y-2">
+                        <div class="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded">
+                            <div><strong>Uptime:</strong> <span id="val-uptime">-</span></div>
+                            <div><strong>CPU:</strong> <span id="val-cpu">-</span>%</div>
+                            <div><strong>RAM:</strong> <span id="val-ram">-</span>%</div>
+                        </div>
+                        <p id="desc-2" class="font-medium mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Step 3: Internet Connection -->
+                <div class="step-card" id="step-3">
+                    <div class="step-header">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700">3. Parameter Internet (Ping DNS)</span>
+                            <div id="loader-3" class="loading-spinner hidden"></div>
+                        </div>
+                        <span id="badge-3" class="badge badge-pending">Menunggu</span>
+                    </div>
+                    <div id="content-3" class="text-sm text-gray-600 hidden space-y-2">
+                        <div class="p-3 bg-gray-50 rounded">
+                            <div class="mb-2"><strong>Ping 8.8.8.8:</strong> <span id="val-ping1">-</span></div>
+                            <div><strong>Ping google.com:</strong> <span id="val-ping2">-</span></div>
+                        </div>
+                        <details class="text-xs mt-2 text-gray-400">
+                            <summary class="cursor-pointer">Lihat Raw Output</summary>
+                            <pre id="raw-ping"
+                                class="mt-1 p-2 bg-gray-900 text-green-400 rounded overflow-x-auto"></pre>
+                        </details>
+                        <p id="desc-3" class="font-medium mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Step 4: Local Network -->
+                <div class="step-card" id="step-4">
+                    <div class="step-header">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700">4. Parameter Jaringan Lokal (LAN/WiFi)</span>
+                            <div id="loader-4" class="loading-spinner hidden"></div>
+                        </div>
+                        <span id="badge-4" class="badge badge-pending">Menunggu</span>
+                    </div>
+                    <div id="content-4" class="text-sm text-gray-600 hidden space-y-2">
+                        <div class="p-3 bg-gray-50 rounded">
+                            <div><strong>LAN Port Status:</strong> <span id="val-lan">-</span></div>
+                            <div class="text-xs text-gray-500 mt-1">*Catatan: Data jumlah klien WiFi aktif tidak
+                                tersedia di versi firmware ONT ini.</div>
+                        </div>
+                        <p id="desc-4" class="font-medium mt-2"></p>
+                    </div>
+                </div>
+
+                <!-- Final Score Result -->
+                <div id="overall-result" class="mt-6 p-6 border-2 rounded-lg text-center hidden">
+                    <h3 class="text-2xl font-bold mb-2">Skor Keseluruhan: <span id="final-score-text">0</span>/100</h3>
+                    <div class="text-xl font-bold mb-4" id="final-status-text">Menilai...</div>
+                    <div class="gauge-container mb-4">
+                        <div id="gauge-bar" class="gauge-fill"></div>
+                    </div>
+                    <p id="final-recommendation"
+                        class="text-gray-700 text-sm mt-4 bg-white p-4 rounded text-left border border-gray-200"></p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let scores = { step1: 0, step2: 0, step3: 0, step4: 0 };
+
+        // --- DOM Elements ---
+        const loginSection = document.getElementById('login-section');
+        const diagnosisSection = document.getElementById('diagnosis-section');
+        const stepsContainer = document.getElementById('steps-container');
+        const startBtn = document.getElementById('start-btn');
+
+        // --- Login Logic ---
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            btn.innerHTML = 'Logging in...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ip: document.getElementById('ip').value,
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    loginSection.classList.add('hidden');
+                    diagnosisSection.classList.remove('hidden');
+                } else {
+                    document.getElementById('login-message').textContent = data.message;
+                    document.getElementById('login-message').classList.remove('hidden');
+                }
+            } catch (err) {
+                alert("Login Error: " + err.message);
+            } finally {
+                btn.innerHTML = 'Login';
+                btn.disabled = false;
+            }
+        });
+
+        // --- Helper Functions ---
+        function setStepStatus(stepNum, status, badgeText) {
+            const badge = document.getElementById(`badge-${stepNum}`);
+            const loader = document.getElementById(`loader-${stepNum}`);
+            const content = document.getElementById(`content-${stepNum}`);
+
+            badge.className = 'badge'; // reset
+
+            if (status === 'running') {
+                badge.classList.add('badge-running');
+                badge.textContent = badgeText || 'Mengecek...';
+                loader.classList.remove('hidden');
+                content.classList.remove('hidden');
+                document.getElementById(`step-${stepNum}`).classList.add('ring-2', 'ring-blue-300');
+            } else if (status === 'success') {
+                badge.classList.add('badge-success');
+                badge.textContent = badgeText || 'Normal (100)';
+                loader.classList.add('hidden');
+                document.getElementById(`step-${stepNum}`).classList.remove('ring-2', 'ring-blue-300');
+            } else if (status === 'warning') {
+                badge.classList.add('badge-warning');
+                badge.textContent = badgeText || 'Warning (50)';
+                loader.classList.add('hidden');
+                document.getElementById(`step-${stepNum}`).classList.remove('ring-2', 'ring-blue-300');
+            } else if (status === 'error') {
+                badge.classList.add('badge-error');
+                badge.textContent = badgeText || 'Abnormal (0)';
+                loader.classList.add('hidden');
+                document.getElementById(`step-${stepNum}`).classList.remove('ring-2', 'ring-blue-300');
+            }
+        }
+
+        function extractPingData(rawOutput) {
+            if (!rawOutput) return { loss: null, latency: null };
+            let loss = null;
+            let latency = null;
+
+            const lossMatch = rawOutput.match(/(\d+)% packet loss/);
+            if (lossMatch) loss = parseInt(lossMatch[1]);
+
+            const timeMatch = rawOutput.match(/min\/avg\/max = [^\/]+\/([^\/]+)\//);
+            if (timeMatch) latency = parseFloat(timeMatch[1]);
+            else {
+                // Try fallback time=xx ms
+                const timeStrMatch = rawOutput.match(/time=(\d+\.?\d*) ms/g);
+                if (timeStrMatch && timeStrMatch.length > 0) {
+                    const lastTime = timeStrMatch[timeStrMatch.length - 1];
+                    const numMatch = lastTime.match(/time=(\d+\.?\d*)/);
+                    if (numMatch) latency = parseFloat(numMatch[1]);
+                }
+            }
+            return { loss, latency };
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return "-";
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${h}j ${m}m`;
+        }
+
+        // --- Diagnosis Steps ---
+
+        async function runStep1() {
+            setStepStatus(1, 'running');
+            try {
+                const res = await fetch('/api/pon');
+                const data = await res.json();
+
+                if (data && !data.error) {
+                    const rx = parseFloat(data.rxPower);
+                    const tx = parseFloat(data.txPower);
+
+                    document.getElementById('val-rx').textContent = data.rxPower;
+                    document.getElementById('val-tx').textContent = data.txPower;
+
+                    let desc = "";
+                    if (rx <= -15 && rx >= -25) {
+                        scores.step1 = 100;
+                        setStepStatus(1, 'success', 'Normal (100)');
+                        desc = "Redaman optik sangat baik. Kabel fiber dalam kondisi optimal.";
+                    } else if (rx < -25 && rx >= -28) {
+                        scores.step1 = 50;
+                        setStepStatus(1, 'warning', 'Warning (50)');
+                        desc = "Redaman optik tinggi (Warning). Cek kabel patchcord apakah tertekuk atau kotor. Dapat menyebabkan packet loss.";
+                        document.getElementById('val-rx').classList.add('text-yellow-600', 'font-bold');
+                    } else if (rx < -28 || data.rxPower === 'LOS' || data.rxPower === '0' || isNaN(rx)) {
+                        scores.step1 = 0;
+                        setStepStatus(1, 'error', 'Abnormal (0)');
+                        desc = "Redaman optik Sangat Buruk (LOS). Kabel fiber putus atau redaman terlalu ekstrem.";
+                        document.getElementById('val-rx').classList.add('text-red-600', 'font-bold');
+                    } else {
+                        // Edge case e.g rx > -15
+                        scores.step1 = 80;
+                        setStepStatus(1, 'warning', 'Tinggi (80)');
+                        desc = "Redaman RX sangat kecil/tinggi dayanya (mungkin ODP terlalu dekat), awasi perangkat kepanasan.";
+                    }
+                    document.getElementById('desc-1').textContent = desc;
+                } else {
+                    throw new Error("Gagal mengambil data PON");
+                }
+            } catch (err) {
+                scores.step1 = 0;
+                setStepStatus(1, 'error', 'Error (0)');
+                document.getElementById('desc-1').textContent = err.message;
+            }
+        }
+
+        async function runStep2() {
+            setStepStatus(2, 'running');
+            try {
+                const [infoRes, statusRes] = await Promise.all([
+                    fetch('/api/info'), fetch('/api/status')
+                ]);
+                const infoData = await infoRes.json();
+                const statusData = await statusRes.json();
+
+                if (!infoData.error && !statusData.error) {
+                    const uptimeSec = parseInt(infoData.uptime);
+                    const cpu = parseInt(statusData.CPU_Usage);
+                    const ram = parseInt(statusData.Memory_Usage);
+
+                    document.getElementById('val-uptime').textContent = formatTime(uptimeSec);
+                    document.getElementById('val-cpu').textContent = cpu;
+                    document.getElementById('val-ram').textContent = ram;
+
+                    let desc = "";
+                    if (cpu > 90) {
+                        scores.step2 = 0;
+                        setStepStatus(2, 'error', 'Abnormal (0)');
+                        desc = "CPU ONT Overload (>90%). Router akan terasa sangat lambat. Coba restart router.";
+                        document.getElementById('val-cpu').classList.add('text-red-600', 'font-bold');
+                    } else if (uptimeSec < 86400) { // less than 1 day
+                        scores.step2 = 50;
+                        setStepStatus(2, 'warning', 'Warning (50)');
+                        desc = "Router baru saja menyala (Uptime < 24 Jam). Jika sebelumnya mati mendadak, cek adaptor daya stabil atau tidak.";
+                        document.getElementById('val-uptime').classList.add('text-yellow-600', 'font-bold');
+                    } else {
+                        scores.step2 = 100;
+                        setStepStatus(2, 'success', 'Normal (100)');
+                        desc = "Uptime dan CPU stabil. Router bekerja tanpa kendala berat.";
+                    }
+                    document.getElementById('desc-2').textContent = desc;
+                } else {
+                    throw new Error("Gagal mengambil data sistem");
+                }
+            } catch (err) {
+                scores.step2 = 0;
+                setStepStatus(2, 'error', 'Error (0)');
+                document.getElementById('desc-2').textContent = err.message;
+            }
+        }
+
+        async function runStep3() {
+            setStepStatus(3, 'running');
+            try {
+                // Ping 8.8.8.8
+                const pingRes1 = await fetch('/api/ping', { method: 'POST', body: JSON.stringify({ target_ip: '8.8.8.8' }), headers: { 'Content-Type': 'application/json' } });
+                const pingData1 = await pingRes1.json();
+
+                // Track raw outputs
+                let fullRaw = "--- PING 8.8.8.8 ---\n" + (pingData1.raw_output || pingData1.status);
+
+                // Ping Google DNS Name
+                const pingRes2 = await fetch('/api/ping', { method: 'POST', body: JSON.stringify({ target_ip: 'google.com' }), headers: { 'Content-Type': 'application/json' } });
+                const pingData2 = await pingRes2.json();
+
+                fullRaw += "\n\n--- PING google.com ---\n" + (pingData2.raw_output || pingData2.status);
+                document.getElementById('raw-ping').textContent = fullRaw;
+
+                // Analyizing results
+                const stat1 = extractPingData(pingData1.raw_output);
+                const isDnsOk = pingData2.status !== 'DNS ERROR' && pingData2.status !== 'ERROR' && !(pingData2.raw_output || "").includes("bad address");
+
+                let txt1 = `${stat1.loss !== null ? stat1.loss + '% Loss' : pingData1.status}, `;
+                txt1 += `${stat1.latency !== null ? stat1.latency + 'ms' : '-'}`;
+                document.getElementById('val-ping1').textContent = txt1;
+
+                document.getElementById('val-ping2').textContent = isDnsOk ? 'DNS OK (Resolved)' : 'DNS Gagal (Bad Address)';
+
+                let desc = "";
+                if (pingData1.status === 'OFFLINE/RTO' || stat1.loss === 100) {
+                    scores.step3 = 0;
+                    setStepStatus(3, 'error', 'Abnormal (0)');
+                    desc = "Koneksi terputus (100% RTO). Internet dari ISP bermasalah atau otentikasi PPPoE gagal.";
+                } else if (!isDnsOk) {
+                    scores.step3 = 0;
+                    setStepStatus(3, 'error', 'Abnormal (0)');
+                    desc = "DNS Gagal meresolve domain. Koneksi IP ada tapi server DNS bermasalah.";
+                } else if (stat1.loss > 5 || stat1.latency > 100) {
+                    scores.step3 = 50;
+                    setStepStatus(3, 'warning', 'Warning (50)');
+                    desc = "Koneksi Lambat. Ada packet loss atau ping membengkak (>100ms). Cek traffic penuh atau redaman kabel.";
+                    document.getElementById('val-ping1').classList.add('text-yellow-600', 'font-bold');
+                } else {
+                    scores.step3 = 100;
+                    setStepStatus(3, 'success', 'Normal (100)');
+                    desc = "Ping stabil dan tidak ada loss. Parameter koneksi primer ke internet dalam kondisi baik.";
+                }
+                document.getElementById('desc-3').textContent = desc;
+
+            } catch (err) {
+                scores.step3 = 0;
+                setStepStatus(3, 'error', 'Error (0)');
+                document.getElementById('desc-3').textContent = err.message;
+            }
+        }
+
+        async function runStep4() {
+            setStepStatus(4, 'running');
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                if (data && !data.error && data.led_status) {
+                    const lanStatusArr = data.led_status.lan || [];
+                    const activeLans = [];
+                    // "lan": ["on", "off", "on", "off"]
+                    lanStatusArr.forEach((state, i) => {
+                        if (state === 'on') activeLans.push(`Port ${i + 1}`);
+                    });
+
+                    if (activeLans.length > 0) {
+                        document.getElementById('val-lan').textContent = `Aktif (${activeLans.join(', ')})`;
+                        document.getElementById('val-lan').classList.add('text-green-600', 'font-medium');
+                        scores.step4 = 100;
+                        setStepStatus(4, 'success', 'Normal (100)');
+                        document.getElementById('desc-4').textContent = "Koneksi LAN terdeteksi terhubung. Pastikan kabel di sisi PC/Router pelanggan menggunakan 1000M/Full untuk hasil maksimal.";
+                    } else {
+                        document.getElementById('val-lan').textContent = `Tidak ada LAN terhubung`;
+                        document.getElementById('val-lan').classList.add('text-gray-500');
+                        scores.step4 = 50; // Neutral Warning
+                        setStepStatus(4, 'warning', 'Warning (50)');
+                        document.getElementById('desc-4').textContent = "Tidak ada kabel LAN (PC/Router tambahan) yang tersambung saat ini. Mengandalkan Wi-Fi bawaan sepenuhnya.";
+                    }
+                } else {
+                    throw new Error("Gagal mengambil status port");
+                }
+            } catch (err) {
+                scores.step4 = 0;
+                setStepStatus(4, 'error', 'Error (0)');
+                document.getElementById('desc-4').textContent = err.message;
+            }
+        }
+
+        function calculateFinalScore() {
+            const resultBox = document.getElementById('overall-result');
+            const scoreText = document.getElementById('final-score-text');
+            const statusText = document.getElementById('final-status-text');
+            const recText = document.getElementById('final-recommendation');
+            const gauge = document.getElementById('gauge-bar');
+
+            resultBox.classList.remove('hidden');
+
+            // Calculate average
+            const avg = Math.round((scores.step1 + scores.step2 + scores.step3 + scores.step4) / 4);
+
+            // Animate number
+            let counter = 0;
+            const timer = setInterval(() => {
+                counter += 2;
+                if (counter >= avg) {
+                    counter = avg;
+                    clearInterval(timer);
+                }
+                scoreText.textContent = counter;
+                gauge.style.width = counter + "%";
+
+                // Update Colors dynamically
+                if (counter > 80) {
+                    resultBox.className = "mt-6 p-6 border-2 rounded-lg text-center bg-green-50 border-green-500";
+                    statusText.textContent = "Koneksi Normal";
+                    statusText.className = "text-xl font-bold mb-4 text-green-700";
+                    gauge.style.backgroundColor = "#22c55e"; // green-500
+                } else if (counter >= 50) {
+                    resultBox.className = "mt-6 p-6 border-2 rounded-lg text-center bg-yellow-50 border-yellow-500";
+                    statusText.textContent = "Ada Gangguan Ringan";
+                    statusText.className = "text-xl font-bold mb-4 text-yellow-700";
+                    gauge.style.backgroundColor = "#eab308"; // yellow-500
+                } else {
+                    resultBox.className = "mt-6 p-6 border-2 rounded-lg text-center bg-red-50 border-red-500";
+                    statusText.textContent = "Koneksi Bermasalah / Mati";
+                    statusText.className = "text-xl font-bold mb-4 text-red-700";
+                    gauge.style.backgroundColor = "#ef4444"; // red-500
+                }
+            }, 20);
+
+            // Generate Recommendation
+            let finalRec = "<strong>Rekomendasi Tindakan:</strong><ul class='list-disc pl-5 mt-2 space-y-1'>";
+            if (scores.step1 < 100) finalRec += "<li>Periksa kabel fiber optik, redaman kurang ideal. Pastikan tidak ada lekukan tajam.</li>";
+            if (scores.step2 < 100) finalRec += "<li>Cek adaptor listrik router atau restart ONT untuk me-refresh Resource CPU.</li>";
+            if (scores.step3 < 100) finalRec += "<li>Cek traffic uplink OLT atau periksa tagihan PPPoE pelanggan jika ping hancur/RTO.</li>";
+            if (scores.step4 < 100) finalRec += "<li>Pastikan koneksi kabel pelanggan (LAN) terpasang rapat bila menggunakan router tambahan.</li>";
+            if (avg === 100) finalRec += "<li>Tidak ditemukan indikasi kendala teknis pada platform router. Jika user masih lambat, periksa batasan FUP Bandwidth atau kemacetan frekuensi WiFi di rumah.</li>";
+            finalRec += "</ul>";
+            recText.innerHTML = finalRec;
+
+            // Re-enable button
+            startBtn.innerHTML = 'Ulangi Diagnosis';
+            startBtn.disabled = false;
+        }
+
+        startBtn.addEventListener('click', async () => {
+            // Reset UI
+            startBtn.innerHTML = 'Memeriksa... Mohon Tunggu...';
+            startBtn.disabled = true;
+            stepsContainer.classList.remove('hidden');
+            document.getElementById('overall-result').classList.add('hidden');
+
+            document.querySelectorAll('[id^=val-], [id^=desc-]').forEach(el => {
+                el.textContent = el.id.startsWith('val') ? '-' : '';
+                el.className = el.id.startsWith('desc') ? 'font-medium mt-2' : '';
+            });
+
+            // Execute Sequentially
+            await runStep1();
+            await runStep2();
+            await runStep3();
+            await runStep4();
+
+            calculateFinalScore();
+        });
+
+        // Auto check login status on load (simple test: hit /api/info)
+        // If it throws 401, we show login.
+        fetch('/api/info')
+            .then(res => {
+                if (res.ok) {
+                    loginSection.classList.add('hidden');
+                    diagnosisSection.classList.remove('hidden');
+                }
+            }).catch(e => console.log(e));
+    </script>
+</body>
+
+</html>

@@ -36,6 +36,11 @@ async def read_index():
     # Serve the index.html on root
     return FileResponse("static/index.html")
 
+@app.get("/diagnosis")
+async def read_diagnosis():
+    # Serve the diagnosis.html
+    return FileResponse("static/diagnosis.html")
+
 @app.post("/api/login")
 async def login(request: LoginRequest):
     global driver_instance
