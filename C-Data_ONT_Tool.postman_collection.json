@@ -158,10 +158,29 @@
                     "host": [
                         "localhost"
                     ],
-                    "port": "8000",
                     "path": [
                         "api",
                         "pon"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "7. Get Diagnosis",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:8000/api/diagnosis",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "8000",
+                    "path": [
+                        "api",
+                        "diagnosis"
                     ]
                 }
             },
